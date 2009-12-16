@@ -2,7 +2,7 @@ package Hash::MultiValue;
 
 use strict;
 use 5.008_001;
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use Carp ();
 use Scalar::Util qw(refaddr);
@@ -89,7 +89,7 @@ sub clear {
 
 sub clone {
     my $self = shift;
-    ref($self)->new($self->flatten);
+    CORE::ref($self)->new($self->flatten);
 }
 
 sub keys {
