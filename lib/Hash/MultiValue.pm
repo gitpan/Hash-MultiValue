@@ -2,7 +2,7 @@ package Hash::MultiValue;
 
 use strict;
 use 5.008_001;
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 use Carp ();
 use Scalar::Util qw(refaddr);
@@ -12,30 +12,27 @@ my %values;
 
 sub ref { 'HASH' }
 
+sub create {
+    my $class = shift;
+    my $self = bless {}, $class;
+    my $this = refaddr $self;
+    $keys{$this} = [];
+    $values{$this} = [];
+    $self;
+}
+
 sub new {
     my $class = shift;
-    my $self = bless { @_ }, $class;
-
-    my $this = refaddr $self;
-    my $k = $keys{$this} = [];
-    my $v = $values{$this} = [];
-
-    push @{ $_ & 1 ? $v : $k }, $_[$_] for 0 .. $#_;
-
-    $self;
+    my $self = $class->create;
+    unshift @_, $self;
+    goto &{ $self->can('merge_flat') };
 }
 
 sub from_mixed {
     my $class = shift;
-
-    my %hash  = @_ == 1 ? %{$_[0]} : @_;
-    my @flat;
-    while (my($key, $value) = each %hash) {
-        my @v = CORE::ref($value) eq 'ARRAY' ? @$value : ($value);
-        push @flat, $key, $_ for @v;
-    }
-
-    $class->new(@flat);
+    my $self = $class->create;
+    unshift @_, $self;
+    goto &{ $self->can('merge_mixed') };
 }
 
 sub DESTROY {
@@ -49,21 +46,6 @@ sub get {
     $self->{$key};
 }
 
-sub get_one {
-    my($self, $key) = @_;
-    my $this = refaddr $self;
-    my $k = $keys{$this};
-    my @v = @{$values{$this}}[grep { $key eq $k->[$_] } 0 .. $#$k];
-
-    if (@v == 0) {
-        Carp::croak "Key not found: $key";
-    } elsif (@v > 1) {
-        Carp::croak "Multiple values match: $key";
-    } else {
-        return $v[0];
-    }
-}
-
 sub get_all {
     my($self, $key) = @_;
     my $this = refaddr $self;
@@ -71,17 +53,53 @@ sub get_all {
     (@{$values{$this}}[grep { $key eq $k->[$_] } 0 .. $#$k]);
 }
 
+sub get_one {
+    my ($self, $key) = @_;
+    my @v = $self->get_all($key);
+    return $v[0] if @v == 1;
+    Carp::croak "Key not found: $key" if not @v;
+    Carp::croak "Multiple values match: $key";
+}
+
 sub add {
     my $self = shift;
     my $key = shift;
+    $self->merge_mixed( $key => \@_ );
+    $self;
+}
+
+sub merge_flat {
+    my $self = shift;
     my $this = refaddr $self;
-    $self->{$key} = $_[-1] if @_;
-    push @{$keys{$this}}, ($key) x @_;
-    push @{$values{$this}}, @_;
+    my $k = $keys{$this};
+    my $v = $values{$this};
+    push @{ $_ & 1 ? $v : $k }, $_[$_] for 0 .. $#_;
+    @{$self}{@$k} = @$v;
+    $self;
+}
+
+sub merge_mixed {
+    my $self = shift;
+    my $this = refaddr $self;
+    my $k = $keys{$this};
+    my $v = $values{$this};
+
+    my $hash;
+    $hash = shift if @_ == 1;
+
+    while ( my ($key, $value) = @_ ? splice @_, 0, 2 : each %$hash ) {
+        my @value = CORE::ref($value) eq 'ARRAY' ? @$value : $value;
+        next if not @value;
+        $self->{$key} = $value[-1];
+        push @$k, ($key) x @value;
+        push @$v, @value;
+    }
+
+    $self;
 }
 
 sub remove {
-    my($self, $key) = @_;
+    my ($self, $key) = @_;
     delete $self->{$key};
 
     my $this = refaddr $self;
@@ -90,6 +108,7 @@ sub remove {
     my @keep = grep { $key ne $k->[$_] } 0 .. $#$k;
     @$k = @$k[@keep];
     @$v = @$v[@keep];
+    $self;
 }
 
 sub clear {
@@ -98,6 +117,7 @@ sub clear {
     my $this = refaddr $self;
     $keys{$this} = [];
     $values{$this} = [];
+    $self;
 }
 
 sub clone {
