@@ -2,7 +2,7 @@ package Hash::MultiValue;
 
 use strict;
 use 5.008_001;
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 use Carp ();
 use Scalar::Util qw(refaddr);
@@ -127,8 +127,12 @@ sub clone {
 
 sub keys {
     my $self = shift;
-    my %seen;
-    grep { !$seen{$_}++ } @{$keys{refaddr $self}};
+    return @{$keys{refaddr $self}};
+}
+
+sub values {
+    my $self = shift;
+    return @{$values{refaddr $self}};
 }
 
 sub flatten {
@@ -137,6 +141,17 @@ sub flatten {
     my $k = $keys{$this};
     my $v = $values{$this};
     map { $k->[$_], $v->[$_] } 0 .. $#$k;
+}
+
+sub each {
+    my ($self, $code) = @_;
+    my $this = refaddr $self;
+    my $k = $keys{$this};
+    my $v = $values{$this};
+    for (0 .. $#$k) {
+        $code->($k->[$_], $v->[$_]);
+    }
+    return $self;
 }
 
 sub as_hashref {
@@ -153,7 +168,7 @@ sub as_hashref_mixed {
 
     my %hash;
     push @{$hash{$k->[$_]}}, $v->[$_] for 0 .. $#$k;
-    for (values %hash) {
+    for (CORE::values %hash) {
         $_ = $_->[0] if 1 == @$_;
     }
 
@@ -202,8 +217,8 @@ Hash::MultiValue - Store multiple values per key
   my $foo = $hash->get('foo');    # 'b' (always, regardless of context)
   my @foo = $hash->get_all('foo'); # ('a', 'b')
 
-  keys %$hash; # ('foo', 'bar') not guaranteed to be ordered
-  $hash->keys; # ('foo', 'bar') guaranteed to be ordered
+  keys %$hash; # ('foo', 'bar')    not guaranteed to be ordered
+  $hash->keys; # ('foo', 'foo', 'bar') guaranteed to be ordered
 
 =head1 DESCRIPTION
 
@@ -309,7 +324,16 @@ attached, the result will be an empty list.
 
   @keys = $hash->keys;
 
-Returns a list of keys, in an ordered way.
+Returns a list of all keys, including duplicates (see the example in the
+L</SYNOPSIS>).
+
+If you want only unique keys, use C<< keys %$hash >>, as normal.
+
+=item values
+
+  @values = $hash->values;
+
+Returns a list of all values, in the same order as C<< $hash->keys >>.
 
 =item add
 
@@ -336,6 +360,32 @@ Clears the hash to be an empty hash reference.
 
 Gets pairs of keys and values. This should be exactly the same pairs
 which are given to C<new> method unless you updated the data.
+
+=item each
+
+  $hash->each($code);
+
+  # e.g.
+  $hash->each(sub { print "$_[0] = $_[1]\n" });
+
+Calls C<$code> once for each C<($key, $value)> pair.  This is a more convenient
+alternative to calling C<flatten> and then iterating over it two items at a
+time.
+
+Inside C<$code>, C<$_> contains the current iteration through the loop,
+starting at 0.  For example:
+
+  $hash = Hash::MultiValue->new(a => 1, b => 2, c => 3, a => 4);
+
+  $hash->each(sub { print "$_: $_[0] = $_[1]\n" });
+  # 0: a = 1
+  # 1: b = 2
+  # 2: c = 3
+  # 3: a = 4
+
+Be careful not to change C<@_> inside your coderef!  It will update the
+tracking object but not the plain hash.  In the future, this limitation may be
+removed.
 
 =item clone
 
@@ -439,6 +489,8 @@ and then all C<ref> calls to Hash::MultiValue objects will return I<HASH>.
 Tatsuhiko Miyagawa E<lt>miyagawa@bulknews.netE<gt>
 
 Aristotle Pagaltzis
+
+Hans Dieter Pearcey
 
 Thanks to Michael Peters for the suggestion to use inside-out objects
 instead of tie.

@@ -39,4 +39,28 @@ my $hash = Hash::MultiValue->new(
     is_deeply $foo->{bar}, [ 'baz' ];
 }
 
+{
+    my @output;
+    $hash->each(sub { push @output, [ $_, @_ ] });
+    is_deeply \@output,
+        [
+            [ 0, 'foo', 'a' ],
+            [ 1, 'foo', 'b' ],
+            [ 2, 'bar', 'baz' ],
+            [ 3, 'baz', 33 ],
+        ];
+}
+
+{
+    # Test for this even though we want people not to do it
+    $hash->each(sub { $_[1]++ });
+    is_deeply [ $hash->flatten ],
+        [ foo => 'b', foo => 'c', bar => 'bba', baz => 34 ];
+    is_deeply $hash,
+        { foo => 'b', bar => "baz", baz => 33 };
+
+    is_deeply [ $hash->keys   ], [ qw(foo foo bar baz) ];
+    is_deeply [ $hash->values ], [ qw(b c bba 34) ];
+}
+
 done_testing;
