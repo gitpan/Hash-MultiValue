@@ -2,7 +2,7 @@ package Hash::MultiValue;
 
 use strict;
 use 5.008_001;
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 use Carp ();
 use Scalar::Util qw(refaddr);
@@ -88,6 +88,43 @@ sub get_one {
     Carp::croak "Multiple values match: $key";
 }
 
+sub set {
+    my $self = shift;
+    my $key = shift;
+
+    my $this = refaddr $self;
+    my $k = $keys{$this};
+    my $v = $values{$this};
+
+    my @idx = grep { $key eq $k->[$_] } 0 .. $#$k;
+
+    my $added = @_ - @idx;
+    if ($added > 0) {
+        my $start = $#$k + 1;
+        push @$k, ($key) x $added;
+        push @idx, $start .. $#$k;
+    }
+    elsif ($added < 0) {
+        my ($start, @drop, @keep) = splice @idx, $added;
+        for ($start+1 .. $#$k) {
+            shift @drop, next if $_ == $drop[0];
+            push @keep, $_;
+        }
+        splice @$k, $start, 0+@$k, @$k[@keep];
+        splice @$v, $start, 0+@$v, @$v[@keep];
+    }
+
+    if (@_) {
+        @$v[@idx] = @_;
+        $self->{$key} = $_[-1];
+    }
+    else {
+        delete $self->{$key};
+    }
+
+    $self;
+}
+
 sub add {
     my $self = shift;
     my $key = shift;
@@ -127,14 +164,7 @@ sub merge_mixed {
 
 sub remove {
     my ($self, $key) = @_;
-    delete $self->{$key};
-
-    my $this = refaddr $self;
-    my $k = $keys{$this};
-    my $v = $values{$this};
-    my @keep = grep { $key ne $k->[$_] } 0 .. $#$k;
-    @$k = @$k[@keep];
-    @$v = @$v[@keep];
+    $self->set($key);
     $self;
 }
 
@@ -252,7 +282,7 @@ Hash::MultiValue - Store multiple values per key
 Hash::MultiValue is an object (and a plain hash reference) that may
 contain multiple values per key, inspired by MultiDict of WebOb.
 
-=head1 WHY THIS MODULE
+=head1 RATIONALE
 
 In a typical web application, the request parameters (a.k.a CGI
 parameters) can be single value or multi values. Using CGI.pm style
@@ -362,6 +392,15 @@ If you want only unique keys, use C<< keys %$hash >>, as normal.
 
 Returns a list of all values, in the same order as C<< $hash->keys >>.
 
+=item set
+
+  $hash->set($key [, $value ... ]);
+
+Changes the stored value(s) of the given C<$key>. This removes or adds
+pairs as necessary to store the new list but otherwise preserves order
+of existing pairs. C<< $hash->{$key} >> is updated to point to the last
+value.
+
 =item add
 
   $hash->add($key, $value [, $value ... ]);
@@ -410,9 +449,9 @@ starting at 0.  For example:
   # 2: c = 3
   # 3: a = 4
 
-Be careful not to change C<@_> inside your coderef!  It will update the
-tracking object but not the plain hash.  In the future, this limitation may be
-removed.
+Be careful B<not> to change C<@_> inside your coderef!  It will update
+the tracking object but not the plain hash.  In the future, this
+limitation I<may> be removed.
 
 =item clone
 
@@ -445,8 +484,8 @@ does exactly the opposite of C<from_mixed>.
 
 =item as_hashref_multi, multi
 
-  $multi = $hash->as_hashref_multi
-  $multi = $hash->multi
+  $multi = $hash->as_hashref_multi;
+  $multi = $hash->multi;
 
 Creates a new plain (unblessed) hash reference where values are all
 array references, regardless of there are single or multiple values
@@ -506,6 +545,12 @@ You can also use UNIVERSAL::ref to make it work magically:
   use Hash::MultiValue;
 
 and then all C<ref> calls to Hash::MultiValue objects will return I<HASH>.
+
+=head1 THREAD SAFETY
+
+Prior to version 0.09, this module wasn't safe in a threaded
+environment, including win32 fork() emulation. Versions newer than
+0.09 is considered thread safe.
 
 =head1 AUTHOR
 
