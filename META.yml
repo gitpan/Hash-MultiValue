@@ -3,11 +3,12 @@ abstract: 'Store multiple values per key'
 author:
   - 'Tatsuhiko Miyagawa <miyagawa@bulknews.net>'
 build_requires:
-  ExtUtils::MakeMaker: 6.42
+  ExtUtils::MakeMaker: 6.62
 configure_requires:
-  ExtUtils::MakeMaker: 6.42
+  ExtUtils::MakeMaker: 6.62
 distribution_type: module
-generated_by: 'Module::Install version 1.01'
+dynamic_config: 1
+generated_by: 'Module::Install version 1.04'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -20,8 +21,8 @@ no_index:
     - xt
 requires:
   Filter::Util::Call: 0
-  perl: 5.8.1
+  perl: 5.6.2
 resources:
   license: http://dev.perl.org/licenses/
   repository: git://github.com/miyagawa/Hash-MultiValue.git
-version: 0.10
+version: 0.11
