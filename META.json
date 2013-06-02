@@ -4,7 +4,7 @@
       "Tatsuhiko Miyagawa <miyagawa@bulknews.net>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Dist::Milla version v1.0.2, Dist::Zilla version 4.300034, CPAN::Meta::Converter version 2.130880",
+   "generated_by" : "Dist::Milla version v1.0.2, Dist::Zilla version 4.300034, CPAN::Meta::Converter version 2.131490",
    "license" : [
       "perl_5"
    ],
@@ -26,7 +26,7 @@
    "prereqs" : {
       "configure" : {
          "requires" : {
-            "Module::Build::Tiny" : "0.019"
+            "ExtUtils::MakeMaker" : "6.30"
          }
       },
       "develop" : {
@@ -57,7 +57,7 @@
          "web" : "https://github.com/miyagawa/Hash-MultiValue"
       }
    },
-   "version" : "0.14",
+   "version" : "0.15",
    "x_contributors" : [
       "Aristotle Pagaltzis <pagaltzis@gmx.de>",
       "Hans Dieter Pearcey <hdp@weftsoar.net>",
